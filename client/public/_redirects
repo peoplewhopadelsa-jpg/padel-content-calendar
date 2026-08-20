@@ -1,7 +1,7 @@
-# Replace YOUR-RENDER-APP with your actual Render service URL once it's
+# Replace padel-content-calendar-api with your actual Render service URL once it's
 # deployed (Render dashboard → your service → the URL at the top).
 # See README.md for the full deploy walkthrough.
 
-/api/*      https://YOUR-RENDER-APP.onrender.com/api/:splat      200
-/uploads/*  https://YOUR-RENDER-APP.onrender.com/uploads/:splat  200
+/api/*      https://padel-content-calendar-api.onrender.com/api/:splat      200
+/uploads/*  https://padel-content-calendar-api.onrender.com/uploads/:splat  200
 /*          /index.html                                          200
