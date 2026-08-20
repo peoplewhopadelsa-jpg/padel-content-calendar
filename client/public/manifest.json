@@ -1,0 +1,11 @@
+{
+  "name": "People Who Padel — Content Calendar",
+  "short_name": "Content Calendar",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0d0d",
+  "theme_color": "#0d0d0d",
+  "icons": [
+    { "src": "/logo.png", "sizes": "1198x626", "type": "image/png" }
+  ]
+}
