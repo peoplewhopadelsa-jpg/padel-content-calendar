@@ -1,15 +1,32 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link2, Image as ImageIcon, StickyNote } from "lucide-react";
 import { api } from "../api.js";
 import { useFormatTypes, useLiveResource } from "../store.jsx";
-import { addDaysLocal, todayLocal, displayDate } from "../dateUtils.js";
+import { addDaysLocal, formatLocal, todayLocal, displayDate } from "../dateUtils.js";
 import { STATUS_LABELS, RESULT_TAGS } from "../theme.js";
 import Modal from "../components/Modal.jsx";
-import FormatBadge from "../components/FormatBadge.jsx";
 import FormatChipPicker from "../components/FormatChipPicker.jsx";
 
-const PAST_DAYS = 3;
-const FUTURE_DAYS = 10;
+// The grid always spans two full Sun–Sat weeks (the current week plus the
+// next one) so it lines up cleanly under 7 weekday columns with no filler
+// cells — still a 2-week rolling window, just week-aligned instead of an
+// arbitrary today-centered offset.
+function startOfWeek(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() - date.getDay());
+  return formatLocal(date);
+}
+
+function statusDotColor(day) {
+  if (day.status === "posted") {
+    if (day.result_tag === "worked_well") return "var(--good)";
+    if (day.result_tag === "flopped") return "var(--bad)";
+    if (day.result_tag === "mid") return "#eda100";
+    return "var(--text-secondary)";
+  }
+  if (day.status === "ready_to_post") return "var(--brand)";
+  return "var(--bad)";
+}
 
 export default function Calendar() {
   const { formatTypes } = useFormatTypes();
@@ -18,10 +35,10 @@ export default function Calendar() {
   const [loading, setLoading] = useState(true);
   const [activeDate, setActiveDate] = useState(null);
 
-  const range = useMemo(
-    () => ({ start: addDaysLocal(today, -PAST_DAYS), end: addDaysLocal(today, FUTURE_DAYS) }),
-    [today]
-  );
+  const range = useMemo(() => {
+    const start = startOfWeek(today);
+    return { start, end: addDaysLocal(start, 13) };
+  }, [today]);
 
   const refetch = useCallback(async () => {
     const rows = await api.getCalendarRange(range.start, range.end);
@@ -43,7 +60,6 @@ export default function Calendar() {
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  const formatById = useMemo(() => new Map(formatTypes.map((f) => [f.id, f])), [formatTypes]);
   const activeDay = days.find((d) => d.date === activeDate);
 
   return (
@@ -56,11 +72,18 @@ export default function Calendar() {
       {loading ? (
         <div className="loading-state">Loading…</div>
       ) : (
-        <div className="calendar-list">
-          {days.map((d) => (
-            <DayCard key={d.date} day={d} isToday={d.date === today} onClick={() => setActiveDate(d.date)} />
-          ))}
-        </div>
+        <>
+          <div className="calendar-weekdays">
+            {days.slice(0, 7).map((d) => (
+              <span key={d.date}>{displayDate(d.date, { weekday: "short" }).split(" ")[0]}</span>
+            ))}
+          </div>
+          <div className="calendar-grid">
+            {days.map((d) => (
+              <DayCell key={d.date} day={d} isToday={d.date === today} onClick={() => setActiveDate(d.date)} />
+            ))}
+          </div>
+        </>
       )}
 
       {activeDay && (
@@ -78,47 +101,21 @@ export default function Calendar() {
   );
 }
 
-function DayCard({ day, isToday, onClick }) {
+function DayCell({ day, isToday, onClick }) {
   return (
-    <div className={`day-card${isToday ? " today" : ""}`} onClick={onClick}>
-      <div className="day-date">
-        <div className="day-date-dow">{displayDate(day.date, { weekday: "short" }).split(" ")[0]}</div>
-        <div className="day-date-num">{Number(day.date.slice(8, 10))}</div>
+    <div className={`cal-cell${isToday ? " today" : ""}`} onClick={onClick}>
+      <div className="cal-cell-top">
+        <span className="cal-cell-date">{Number(day.date.slice(8, 10))}</span>
+        <span className="cal-status-dot" style={{ background: statusDotColor(day) }} />
       </div>
-      <div className="day-body">
-        <div className="day-top-row">
-          <FormatBadge name={day.format_name} color={day.format_color} />
-          <span className={`status-pill status-${day.status}`}>{STATUS_LABELS[day.status]}</span>
-          {day.status === "posted" && day.result_tag && (
-            <span className={`result-tag result-${day.result_tag}`}>
-              {RESULT_TAGS.find((r) => r.value === day.result_tag)?.label}
-            </span>
-          )}
-          {day.status === "posted" && day.result_metric != null && (
-            <span className="badge badge-muted">{day.result_metric.toLocaleString()}</span>
-          )}
-        </div>
-        <div className="day-meta-row">
-          {day.note ? (
-            <span className="day-note">
-              <StickyNote size={12} style={{ verticalAlign: -1, marginRight: 4 }} />
-              {day.note}
-            </span>
-          ) : !day.format_name ? (
-            <span className="day-unassigned">Unassigned — TBD</span>
-          ) : null}
-          {day.linked_bank_item_id && (
-            <span className="badge badge-muted">
-              <Link2 size={11} /> Bank
-            </span>
-          )}
-          {day.linked_inspo_item_id && (
-            <span className="badge badge-muted">
-              <ImageIcon size={11} /> Inspo
-            </span>
-          )}
-        </div>
-      </div>
+      {day.format_name && (
+        <>
+          <span className="cal-cell-format" style={{ background: day.format_color }}>
+            {day.format_name}
+          </span>
+          <span className="cal-cell-format-dot" style={{ background: day.format_color }} />
+        </>
+      )}
     </div>
   );
 }
